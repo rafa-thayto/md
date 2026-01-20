@@ -48,7 +48,7 @@ export async function startServer(options: ServerOptions) {
         const result = await api.handleGetFile(decodeURIComponent(filePath));
 
         if ('error' in result) {
-          return Response.json(result, { status: 'FORBIDDEN' in result ? 403 : 404 });
+          return Response.json(result, { status: result.error === 'FORBIDDEN' ? 403 : 404 });
         }
 
         return Response.json(result);
@@ -59,7 +59,7 @@ export async function startServer(options: ServerOptions) {
         const result = await api.handleGetAsset(decodeURIComponent(assetPath));
 
         if ('error' in result) {
-          return Response.json(result, { status: 'FORBIDDEN' in result ? 403 : 404 });
+          return Response.json(result, { status: result.error === 'FORBIDDEN' ? 403 : 404 });
         }
 
         return new Response(result);
