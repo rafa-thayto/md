@@ -6,7 +6,7 @@ import open from 'open';
 
 async function main() {
   const rootPath = process.cwd();
-  const clientDistPath = join(import.meta.dir, 'client', 'dist');
+  const clientDistPath = join(import.meta.dir, 'client');
 
   console.log('🔍 Starting MDViewer...');
 

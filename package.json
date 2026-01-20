@@ -1,28 +1,27 @@
 {
-  "name": "mdviewer",
+  "name": "md-file-browser",
   "version": "1.0.0",
   "type": "module",
   "bin": {
-    "mdviewer": "./dist/cli.js"
+    "md-file-browser": "./dist/cli.js"
   },
   "scripts": {
     "dev": "bun run dev:client & bun run dev:server",
     "dev:client": "cd src/client && bun run dev",
     "dev:server": "bun run --watch src/cli.ts",
-    "build": "bun run build:client && bun run build:server",
+    "build": "bun run build:client && bun run build:server && bun run build:copy",
     "build:client": "cd src/client && bun run build",
     "build:server": "bun build src/cli.ts --outdir dist --target bun --minify",
+    "build:copy": "cp -r src/client/dist dist/client",
     "test": "bun test"
   },
   "dependencies": {
     "chokidar": "^3.5.3",
     "glob": "^10.3.10",
-    "ws": "^8.16.0",
     "open": "^10.0.3"
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/ws": "^8.5.10",
     "typescript": "^5.3.3"
   }
 }

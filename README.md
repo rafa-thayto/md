@@ -16,7 +16,7 @@ A CLI tool for browsing markdown files in a beautiful web interface with real-ti
 ## Installation
 
 ```bash
-bun install -g mdviewer
+bun install -g md-file-browser
 ```
 
 ## Usage
@@ -24,13 +24,13 @@ bun install -g mdviewer
 Navigate to any directory with markdown files and run:
 
 ```bash
-mdviewer
+md-file-browser
 ```
 
 Or use with bunx:
 
 ```bash
-bunx mdviewer
+bunx md-file-browser
 ```
 
 The app will:
@@ -49,7 +49,7 @@ The app will:
 
 ```bash
 git clone <repository>
-cd mdviewer
+cd md-file-browser
 bun install
 cd src/client
 bun install

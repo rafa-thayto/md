@@ -1,8 +1,8 @@
-import { serve, file } from 'bun';
+import { serve, file, type ServerWebSocket } from 'bun';
 import { join } from 'path';
 import { ApiServer } from './api';
-import { WSServer } from './websocket';
 import { watchMarkdownFiles } from './files';
+import type { WebSocketMessage } from '../types';
 
 export interface ServerOptions {
   rootPath: string;
@@ -10,14 +10,32 @@ export interface ServerOptions {
   clientDistPath: string;
 }
 
+interface WSData {
+  createdAt: number;
+}
+
+const clients = new Set<ServerWebSocket<WSData>>();
+
 export async function startServer(options: ServerOptions) {
   const { rootPath, port = 3456, clientDistPath } = options;
   const api = new ApiServer(rootPath);
 
   const server = serve({
     port,
-    async fetch(req) {
+    async fetch(req, server) {
       const url = new URL(req.url);
+
+      // WebSocket upgrade
+      if (url.pathname === '/ws') {
+        const success = server.upgrade(req, {
+          data: {
+            createdAt: Date.now(),
+          },
+        });
+        return success
+          ? undefined
+          : new Response('WebSocket upgrade failed', { status: 500 });
+      }
 
       // API Routes
       if (url.pathname === '/api/files') {
@@ -61,15 +79,29 @@ export async function startServer(options: ServerOptions) {
 
       // SPA fallback
       return new Response(file(join(clientDistPath, 'index.html')));
-    }
+    },
+    websocket: {
+      open(ws) {
+        clients.add(ws);
+        console.log('WebSocket client connected');
+      },
+      message(ws, message) {
+        // Echo messages back (not needed for our use case but required by interface)
+        console.log('WebSocket message received:', message);
+      },
+      close(ws) {
+        clients.delete(ws);
+        console.log('WebSocket client disconnected');
+      },
+    },
   });
 
-  // Setup WebSocket
-  const wsServer = new WSServer(server);
-
   // Setup file watcher
-  const stopWatching = watchMarkdownFiles(rootPath, (message) => {
-    wsServer.broadcast(message);
+  const stopWatching = watchMarkdownFiles(rootPath, (message: WebSocketMessage) => {
+    const data = JSON.stringify(message);
+    clients.forEach(client => {
+      client.send(data);
+    });
   });
 
   console.log(`🚀 MDViewer running at http://localhost:${port}`);
@@ -79,7 +111,8 @@ export async function startServer(options: ServerOptions) {
     server,
     close: () => {
       stopWatching();
-      wsServer.close();
+      clients.forEach(client => client.close());
+      clients.clear();
       server.stop();
     }
   };
