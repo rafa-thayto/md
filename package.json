@@ -1,9 +1,9 @@
 {
-  "name": "md-file-browser",
+  "name": "@thayto/md",
   "version": "1.0.0",
   "type": "module",
   "bin": {
-    "md-file-browser": "./dist/cli.js"
+    "md": "./dist/cli.js"
   },
   "scripts": {
     "dev": "bun run dev:client & bun run dev:server",

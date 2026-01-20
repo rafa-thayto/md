@@ -16,7 +16,7 @@ A CLI tool for browsing markdown files in a beautiful web interface with real-ti
 ## Installation
 
 ```bash
-bun install -g md-file-browser
+bun install -g @thayto/md
 ```
 
 ## Usage
@@ -24,13 +24,13 @@ bun install -g md-file-browser
 Navigate to any directory with markdown files and run:
 
 ```bash
-md-file-browser
+md
 ```
 
 Or use with bunx:
 
 ```bash
-bunx md-file-browser
+bunx @thayto/md
 ```
 
 The app will:
@@ -49,7 +49,7 @@ The app will:
 
 ```bash
 git clone <repository>
-cd md-file-browser
+cd @thayto/md
 bun install
 cd src/client
 bun install
@@ -73,7 +73,7 @@ source ~/.zshrc
 
 # Now you can use it anywhere:
 cd ~/some-directory-with-markdown
-md-file-browser
+md
 ```
 
 ### Run Development Server
