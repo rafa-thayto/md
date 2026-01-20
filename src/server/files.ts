@@ -1,6 +1,7 @@
 import { glob } from 'glob';
 import { relative, dirname, basename, join } from 'path';
-import type { FileNode } from '../types';
+import chokidar from 'chokidar';
+import type { FileNode, WebSocketMessage } from '../types';
 
 export async function findMarkdownFiles(rootPath: string): Promise<FileNode> {
   const files = await glob('**/*.{md,markdown}', {
@@ -52,4 +53,39 @@ function insertIntoTree(root: FileNode, filePath: string): void {
       current = child;
     }
   }
+}
+
+export function watchMarkdownFiles(
+  rootPath: string,
+  onChange: (message: WebSocketMessage) => void
+): () => void {
+  const watcher = chokidar.watch('**/*.{md,markdown}', {
+    cwd: rootPath,
+    ignored: /(^|[\/\\])\../,
+    persistent: true,
+    ignoreInitial: true
+  });
+
+  watcher.on('add', (filePath) => {
+    onChange({
+      type: 'file-added',
+      path: filePath
+    });
+  });
+
+  watcher.on('change', (filePath) => {
+    onChange({
+      type: 'file-changed',
+      path: filePath
+    });
+  });
+
+  watcher.on('unlink', (filePath) => {
+    onChange({
+      type: 'file-removed',
+      path: filePath
+    });
+  });
+
+  return () => watcher.close();
 }
