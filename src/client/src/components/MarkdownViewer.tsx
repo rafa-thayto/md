@@ -15,8 +15,8 @@ interface MarkdownViewerProps {
 }
 
 export function MarkdownViewer({ file, loading, error }: MarkdownViewerProps) {
-  const transformImageUri = useMemo(() => {
-    if (!file) return undefined;
+  const getImageUrl = useMemo(() => {
+    if (!file) return (src: string) => src;
 
     return (src: string) => {
       if (src.startsWith('http://') || src.startsWith('https://')) {
@@ -62,12 +62,13 @@ export function MarkdownViewer({ file, loading, error }: MarkdownViewerProps) {
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           rehypePlugins={[rehypeRaw, rehypeSanitize]}
-          transformImageUri={transformImageUri}
           components={{
-            code({ inline, className, children, ...props }) {
+            code(props) {
+              const { children, className, node, ...rest } = props;
               const match = /language-(\w+)/.exec(className || '');
               const language = match ? match[1] : '';
               const value = String(children).replace(/\n$/, '');
+              const inline = !className;
 
               if (!inline && language === 'mermaid') {
                 return <MermaidDiagram chart={value} />;
@@ -78,19 +79,30 @@ export function MarkdownViewer({ file, loading, error }: MarkdownViewerProps) {
               }
 
               return (
-                <code className={className} {...props}>
+                <code className={className} {...rest}>
                   {children}
                 </code>
               );
             },
-            a({ href, children, ...props }) {
+            img(props) {
+              const { src, alt, ...rest } = props;
+              return (
+                <img
+                  src={src ? getImageUrl(src) : ''}
+                  alt={alt}
+                  {...rest}
+                />
+              );
+            },
+            a(props) {
+              const { href, children, ...rest } = props;
               const isExternal = href?.startsWith('http://') || href?.startsWith('https://');
               return (
                 <a
                   href={href}
                   target={isExternal ? '_blank' : undefined}
                   rel={isExternal ? 'noopener noreferrer' : undefined}
-                  {...props}
+                  {...rest}
                 >
                   {children}
                 </a>

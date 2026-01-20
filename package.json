@@ -11,7 +11,7 @@
     "dev:server": "bun run --watch src/cli.ts",
     "build": "bun run build:client && bun run build:server",
     "build:client": "cd src/client && bun run build",
-    "build:server": "bun build src/cli.ts --outdir dist --target node --minify",
+    "build:server": "bun build src/cli.ts --outdir dist --target bun --minify",
     "test": "bun test"
   },
   "dependencies": {
