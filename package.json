@@ -6,9 +6,12 @@
     "mdviewer": "./dist/cli.js"
   },
   "scripts": {
-    "dev": "bun run --watch src/cli.ts",
-    "build": "bun build src/cli.ts --outdir dist --target node && bun run build:client",
+    "dev": "bun run dev:client & bun run dev:server",
+    "dev:client": "cd src/client && bun run dev",
+    "dev:server": "bun run --watch src/cli.ts",
+    "build": "bun run build:client && bun run build:server",
     "build:client": "cd src/client && bun run build",
+    "build:server": "bun build src/cli.ts --outdir dist --target node --minify",
     "test": "bun test"
   },
   "dependencies": {
