@@ -1,0 +1,88 @@
+# MDViewer
+
+A CLI tool for browsing markdown files in a beautiful web interface with real-time updates.
+
+## Features
+
+- 📁 Recursive markdown file discovery
+- 🔍 Fuzzy search to quickly find files
+- 🎨 Beautiful markdown rendering with GitHub-flavored markdown
+- 📊 Mermaid diagram support
+- 💻 Syntax highlighting for code blocks
+- 📋 Copy buttons for code blocks
+- 🔄 Real-time file watching and updates
+- 🖼️ Image and asset support
+
+## Installation
+
+```bash
+bun install -g mdviewer
+```
+
+## Usage
+
+Navigate to any directory with markdown files and run:
+
+```bash
+mdviewer
+```
+
+Or use with bunx:
+
+```bash
+bunx mdviewer
+```
+
+The app will:
+1. Start a local web server
+2. Scan for all markdown files
+3. Open your browser automatically
+4. Watch for file changes in real-time
+
+## Development
+
+### Prerequisites
+
+- Bun 1.0+
+
+### Setup
+
+```bash
+git clone <repository>
+cd mdviewer
+bun install
+cd src/client
+bun install
+cd ../..
+```
+
+### Run Development Server
+
+```bash
+bun run dev
+```
+
+### Build
+
+```bash
+bun run build
+```
+
+### Test
+
+```bash
+bun test
+```
+
+## Architecture
+
+- **Backend**: Bun HTTP server with REST API and WebSocket
+- **Frontend**: React + Vite with TypeScript
+- **File Watching**: Chokidar for real-time updates
+- **Markdown**: react-markdown with remark-gfm
+- **Search**: Fuse.js for fuzzy search
+- **Diagrams**: Mermaid for flowcharts and diagrams
+
+## License
+
+MIT
