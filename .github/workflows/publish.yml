@@ -1,0 +1,68 @@
+name: Publish to npm
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Install client dependencies
+        run: cd src/client && bun install
+
+      - name: Build project
+        run: bun run build
+
+      - name: Check if version changed
+        id: version-check
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "Current version: $CURRENT_VERSION"
+
+          # Check if this version exists on npm
+          if npm view mdlens@$CURRENT_VERSION version 2>/dev/null; then
+            echo "Version $CURRENT_VERSION already published to npm"
+            echo "should_publish=false" >> $GITHUB_OUTPUT
+          else
+            echo "Version $CURRENT_VERSION not found on npm, will publish"
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup npm authentication
+        if: steps.version-check.outputs.should_publish == 'true'
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+
+      - name: Publish to npm
+        if: steps.version-check.outputs.should_publish == 'true'
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Output result
+        run: |
+          if [ "${{ steps.version-check.outputs.should_publish }}" == "true" ]; then
+            echo "✅ Successfully published version $(node -p 'require(\"./package.json\").version') to npm"
+          else
+            echo "ℹ️ Skipped publishing - version already exists on npm"
+          fi
