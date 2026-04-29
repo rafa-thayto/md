@@ -1,41 +1,61 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import mermaid from 'mermaid';
 
 interface MermaidDiagramProps {
   chart: string;
 }
 
-let mermaidInitialized = false;
+type MermaidTheme = 'default' | 'dark';
+
+function currentTheme(): MermaidTheme {
+  return document.documentElement.classList.contains('dark') ? 'dark' : 'default';
+}
+
+function initMermaid(theme: MermaidTheme): void {
+  mermaid.initialize({ startOnLoad: false, theme, securityLevel: 'loose' });
+}
+
+// Render the mermaid SVG into the container. mermaid.render() returns an SVG
+// string that mermaid itself sanitizes; we route it through innerHTML because
+// that's the only API for inserting parsed SVG markup.
+function injectSvg(container: HTMLDivElement, svg: string): void {
+  // eslint-disable-next-line no-unsanitized/property -- sanitized by mermaid
+  container.innerHTML = svg;
+}
 
 export function MermaidDiagram({ chart }: MermaidDiagramProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [theme, setTheme] = useState<MermaidTheme>(currentTheme);
+
+  // Re-initialize + re-render when the html.dark class changes
+  useEffect(() => {
+    const observer = new MutationObserver(() => setTheme(currentTheme()));
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
-    if (!mermaidInitialized) {
-      mermaid.initialize({
-        startOnLoad: false,
-        theme: 'default',
-        securityLevel: 'loose'
-      });
-      mermaidInitialized = true;
-    }
+    initMermaid(theme);
 
-    const renderDiagram = async () => {
-      if (!containerRef.current) return;
-
+    let cancelled = false;
+    async function render() {
       try {
-        const id = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
+        const id = `mermaid-${crypto.randomUUID()}`;
         const { svg } = await mermaid.render(id, chart);
-        // Note: mermaid.render() returns sanitized SVG that is safe to render
-        containerRef.current.innerHTML = svg;
+        if (cancelled || !containerRef.current) return;
+        injectSvg(containerRef.current, svg);
       } catch (error) {
+        if (cancelled || !containerRef.current) return;
         console.error('Mermaid render error:', error);
-        containerRef.current.innerHTML = `<pre>Error rendering diagram</pre>`;
+        containerRef.current.textContent = 'Error rendering diagram';
       }
-    };
-
-    renderDiagram();
-  }, [chart]);
+    }
+    render();
+    return () => { cancelled = true; };
+  }, [chart, theme]);
 
   return <div ref={containerRef} className="mermaid-diagram" />;
 }
