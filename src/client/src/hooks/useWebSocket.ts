@@ -1,51 +1,65 @@
-import { useEffect, useRef, useCallback } from 'react';
-import type { WebSocketMessage } from '../types';
+import { useEffect, useRef, useState } from 'react';
+import type { WebSocketMessage, ConnectionStatus } from '../types';
 
-export function useWebSocket(onMessage: (message: WebSocketMessage) => void) {
+export function useWebSocket(
+  onMessage: (message: WebSocketMessage) => void,
+): ConnectionStatus {
+  // Ref pattern: always call the latest onMessage without causing reconnects
+  const onMessageRef = useRef(onMessage);
+  useEffect(() => {
+    onMessageRef.current = onMessage;
+  });
+
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
-
-  const connect = useCallback(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
-
-    ws.onopen = () => {
-      console.log('WebSocket connected');
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const message: WebSocketMessage = JSON.parse(event.data);
-        onMessage(message);
-      } catch (error) {
-        console.error('Failed to parse WebSocket message:', error);
-      }
-    };
-
-    ws.onclose = () => {
-      console.log('WebSocket disconnected, reconnecting...');
-      reconnectTimeoutRef.current = window.setTimeout(() => {
-        connect();
-      }, 2000);
-    };
-
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-    };
-
-    wsRef.current = ws;
-  }, [onMessage]);
+  const [status, setStatus] = useState<ConnectionStatus>('connecting');
 
   useEffect(() => {
+    let cancelled = false;
+
+    function connect() {
+      if (cancelled) return;
+
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+      wsRef.current = ws;
+      setStatus('connecting');
+
+      ws.onopen = () => {
+        if (cancelled) return;
+        setStatus('open');
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message: WebSocketMessage = JSON.parse(event.data);
+          onMessageRef.current(message);
+        } catch (error) {
+          console.error('Failed to parse WebSocket message:', error);
+        }
+      };
+
+      ws.onclose = () => {
+        if (cancelled) return;
+        setStatus('closed');
+        reconnectTimeoutRef.current = window.setTimeout(connect, 2000);
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+    }
+
     connect();
 
     return () => {
-      if (reconnectTimeoutRef.current) {
+      cancelled = true;
+      if (reconnectTimeoutRef.current !== null) {
         clearTimeout(reconnectTimeoutRef.current);
       }
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
+      wsRef.current?.close();
     };
-  }, [connect]);
+  }, []); // stable — no deps needed thanks to ref pattern
+
+  return status;
 }
