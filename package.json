@@ -18,7 +18,7 @@
     "build": "bun run build:client && bun run build:server && bun run build:copy",
     "build:client": "cd src/client && bun run build",
     "build:server": "bun build src/cli.ts --outdir dist --target bun --minify",
-    "build:copy": "cp -r src/client/dist dist/client",
+    "build:copy": "rm -rf dist/client && cp -r src/client/dist dist/client",
     "test": "bun test"
   },
   "dependencies": {
