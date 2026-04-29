@@ -1,23 +1,35 @@
 import type { FileNode, FileContent } from './types';
 
-export class ApiClient {
-  private baseUrl = '/api';
+const BASE_URL = '/api';
 
-  async getFiles(): Promise<FileNode> {
-    const response = await fetch(`${this.baseUrl}/files`);
-    if (!response.ok) throw new Error('Failed to fetch files');
-    return response.json();
+async function readErrorMessage(response: Response, fallback: string): Promise<string> {
+  try {
+    const data = await response.json();
+    if (data && typeof data.message === 'string') return data.message;
+  } catch {
+    // body not JSON — fall through
   }
-
-  async getFile(path: string): Promise<FileContent> {
-    const response = await fetch(`${this.baseUrl}/file/${encodeURIComponent(path)}`);
-    if (!response.ok) throw new Error('Failed to fetch file');
-    return response.json();
-  }
-
-  getAssetUrl(path: string): string {
-    return `${this.baseUrl}/asset/${encodeURIComponent(path)}`;
-  }
+  return fallback;
 }
 
-export const apiClient = new ApiClient();
+async function getFiles(): Promise<FileNode> {
+  const response = await fetch(`${BASE_URL}/files`);
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, 'Failed to fetch files'));
+  }
+  return response.json();
+}
+
+async function getFile(path: string): Promise<FileContent> {
+  const response = await fetch(`${BASE_URL}/file/${encodeURIComponent(path)}`);
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, 'Failed to fetch file'));
+  }
+  return response.json();
+}
+
+function getAssetUrl(path: string): string {
+  return `${BASE_URL}/asset/${encodeURIComponent(path)}`;
+}
+
+export const apiClient = { getFiles, getFile, getAssetUrl };
