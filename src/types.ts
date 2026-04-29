@@ -1,15 +1,11 @@
-export interface FileNode {
-  name: string;
-  path: string;
-  type: 'file' | 'directory';
-  children?: FileNode[];
-}
+export type FileNode =
+  | { type: 'file'; name: string; path: string }
+  | { type: 'directory'; name: string; path: string; children: FileNode[] };
 
-export interface WebSocketMessage {
-  type: 'file-added' | 'file-removed' | 'file-changed';
-  path: string;
-  node?: FileNode;
-}
+export type WebSocketMessage =
+  | { type: 'file-added'; path: string }
+  | { type: 'file-changed'; path: string }
+  | { type: 'file-removed'; path: string };
 
 export interface FileContent {
   path: string;
@@ -17,7 +13,9 @@ export interface FileContent {
   frontmatter?: Record<string, unknown>;
 }
 
+export type ErrorCode = 'FORBIDDEN' | 'NOT_FOUND' | 'FILE_DISCOVERY_ERROR';
+
 export interface ErrorResponse {
-  error: string;
+  error: ErrorCode;
   message: string;
 }
