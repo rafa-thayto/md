@@ -23,8 +23,11 @@ describe('findMarkdownFiles', () => {
     const result = await findMarkdownFiles(testDir);
 
     expect(result.type).toBe('directory');
-    expect(result.children).toHaveLength(2);
-    expect(result.children?.some(n => n.name === 'test.md')).toBe(true);
-    expect(result.children?.some(n => n.name === 'subdir')).toBe(true);
+
+    if (result.type === 'directory') {
+      expect(result.children).toHaveLength(2);
+      expect(result.children.some(n => n.name === 'test.md')).toBe(true);
+      expect(result.children.some(n => n.name === 'subdir')).toBe(true);
+    }
   });
 });

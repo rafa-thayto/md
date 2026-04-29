@@ -1,57 +1,47 @@
-import { glob } from 'glob';
-import { relative, dirname, basename, join } from 'path';
+import { basename } from 'path';
 import chokidar from 'chokidar';
 import type { FileNode, WebSocketMessage } from '../types';
 
+type DirNode = Extract<FileNode, { type: 'directory' }>;
+
+function makeDir(name: string, path: string): DirNode {
+  return { type: 'directory', name, path, children: [] };
+}
+
+function makeFile(name: string, path: string): FileNode {
+  return { type: 'file', name, path };
+}
+
 export async function findMarkdownFiles(rootPath: string): Promise<FileNode> {
-  const files = await glob('**/*.{md,markdown}', {
-    cwd: rootPath,
-    nodir: true,
-    dot: false
-  });
+  const glob = new Bun.Glob('**/*.{md,markdown}');
+  const root = makeDir(basename(rootPath), '');
 
-  const root: FileNode = {
-    name: basename(rootPath),
-    path: '',
-    type: 'directory',
-    children: []
-  };
-
-  for (const file of files) {
+  for await (const file of glob.scan({ cwd: rootPath, onlyFiles: true })) {
     insertIntoTree(root, file);
   }
 
   return root;
 }
 
-function insertIntoTree(root: FileNode, filePath: string): void {
+function findOrCreateChild(parent: DirNode, name: string, path: string, isFile: boolean): FileNode {
+  const existing = parent.children.find(c => c.name === name);
+  if (existing) return existing;
+
+  const child = isFile ? makeFile(name, path) : makeDir(name, path);
+  parent.children.push(child);
+  return child;
+}
+
+function insertIntoTree(root: DirNode, filePath: string): void {
   const parts = filePath.split('/');
-  let current = root;
+  let current: DirNode = root;
 
   for (let i = 0; i < parts.length; i++) {
-    const part = parts[i];
-    const isFile = i === parts.length - 1;
+    const isLast = i === parts.length - 1;
     const path = parts.slice(0, i + 1).join('/');
+    const child = findOrCreateChild(current, parts[i], path, isLast);
 
-    if (!current.children) {
-      current.children = [];
-    }
-
-    let child = current.children.find(c => c.name === part);
-
-    if (!child) {
-      child = {
-        name: part,
-        path,
-        type: isFile ? 'file' : 'directory',
-        children: isFile ? undefined : []
-      };
-      current.children.push(child);
-    }
-
-    if (!isFile) {
-      current = child;
-    }
+    if (child.type === 'directory') current = child;
   }
 }
 
@@ -67,24 +57,15 @@ export function watchMarkdownFiles(
   });
 
   watcher.on('add', (filePath) => {
-    onChange({
-      type: 'file-added',
-      path: filePath
-    });
+    onChange({ type: 'file-added', path: filePath });
   });
 
   watcher.on('change', (filePath) => {
-    onChange({
-      type: 'file-changed',
-      path: filePath
-    });
+    onChange({ type: 'file-changed', path: filePath });
   });
 
   watcher.on('unlink', (filePath) => {
-    onChange({
-      type: 'file-removed',
-      path: filePath
-    });
+    onChange({ type: 'file-removed', path: filePath });
   });
 
   return () => watcher.close();
