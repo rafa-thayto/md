@@ -1,8 +1,8 @@
-import { serve, file, type ServerWebSocket } from 'bun';
+import { file, type ServerWebSocket, type BunRequest, type Server } from 'bun';
 import { join } from 'path';
-import { ApiServer } from './api';
+import { handleGetFiles, handleGetFile, handleGetAsset, errorToStatus } from './api';
 import { watchMarkdownFiles } from './files';
-import type { WebSocketMessage } from '../types';
+import type { WebSocketMessage, ErrorResponse } from '../types';
 
 export interface ServerOptions {
   rootPath: string;
@@ -10,109 +10,92 @@ export interface ServerOptions {
   clientDistPath: string;
 }
 
-interface WSData {
-  createdAt: number;
+const WS_CHANNEL = 'files';
+const IS_DEV = process.env.NODE_ENV !== 'production';
+
+function debug(...args: unknown[]): void {
+  if (IS_DEV) console.log(...args);
 }
 
-const clients = new Set<ServerWebSocket<WSData>>();
+async function serveStaticFile(
+  pathname: string,
+  clientDistPath: string
+): Promise<Response> {
+  const filePath = pathname === '/' ? '/index.html' : pathname;
+  const clientFile = file(join(clientDistPath, filePath));
+
+  if (await clientFile.exists()) {
+    return new Response(clientFile);
+  }
+
+  return new Response(file(join(clientDistPath, 'index.html')));
+}
+
+function makeErrorResponse(result: ErrorResponse): Response {
+  return Response.json(result, { status: errorToStatus(result.error) });
+}
+
+function decodeWildcardPath(req: Request, prefix: string): string {
+  return decodeURIComponent(new URL(req.url).pathname.slice(prefix.length));
+}
 
 export async function startServer(options: ServerOptions) {
   const { rootPath, port = 3456, clientDistPath } = options;
-  const api = new ApiServer(rootPath);
 
-  const server = serve({
+  const server = Bun.serve({
     port,
-    async fetch(req, server) {
-      const url = new URL(req.url);
-
-      // WebSocket upgrade
-      if (url.pathname === '/ws') {
-        const success = server.upgrade(req, {
-          data: {
-            createdAt: Date.now(),
-          },
-        });
-        return success
-          ? undefined
-          : new Response('WebSocket upgrade failed', { status: 500 });
-      }
-
-      // API Routes
-      if (url.pathname === '/api/files') {
-        const result = await api.handleGetFiles();
+    routes: {
+      '/ws': (req: BunRequest<'/ws'>, srv: Server<undefined>) => {
+        const success = srv.upgrade(req);
+        return success ? undefined : new Response('WebSocket upgrade failed', { status: 500 });
+      },
+      '/api/health': () => Response.json({ status: 'ok' }),
+      '/api/files': async () => {
+        const result = await handleGetFiles(rootPath);
         return Response.json(result);
-      }
-
-      if (url.pathname.startsWith('/api/file/')) {
-        const filePath = url.pathname.slice('/api/file/'.length);
-        const result = await api.handleGetFile(decodeURIComponent(filePath));
-
-        if ('error' in result) {
-          return Response.json(result, { status: result.error === 'FORBIDDEN' ? 403 : 404 });
-        }
-
+      },
+      '/api/file/*': async (req: BunRequest<'/api/file/*'>) => {
+        const filePath = decodeWildcardPath(req, '/api/file/');
+        const result = await handleGetFile(rootPath, filePath);
+        if ('error' in result) return makeErrorResponse(result);
         return Response.json(result);
-      }
-
-      if (url.pathname.startsWith('/api/asset/')) {
-        const assetPath = url.pathname.slice('/api/asset/'.length);
-        const result = await api.handleGetAsset(decodeURIComponent(assetPath));
-
-        if ('error' in result) {
-          return Response.json(result, { status: result.error === 'FORBIDDEN' ? 403 : 404 });
-        }
-
+      },
+      '/api/asset/*': async (req: BunRequest<'/api/asset/*'>) => {
+        const assetPath = decodeWildcardPath(req, '/api/asset/');
+        const result = await handleGetAsset(rootPath, assetPath);
+        if ('error' in result) return makeErrorResponse(result);
         return new Response(result);
-      }
-
-      if (url.pathname === '/api/health') {
-        return Response.json({ status: 'ok' });
-      }
-
-      // Serve static client files
-      const filePath = url.pathname === '/' ? '/index.html' : url.pathname;
-      const clientFile = file(join(clientDistPath, filePath));
-
-      if (await clientFile.exists()) {
-        return new Response(clientFile);
-      }
-
-      // SPA fallback
-      return new Response(file(join(clientDistPath, 'index.html')));
+      },
+    },
+    async fetch(req) {
+      const url = new URL(req.url);
+      return serveStaticFile(url.pathname, clientDistPath);
     },
     websocket: {
-      open(ws) {
-        clients.add(ws);
-        console.log('WebSocket client connected');
+      open(ws: ServerWebSocket) {
+        ws.subscribe(WS_CHANNEL);
+        debug('WebSocket client connected');
       },
-      message(ws, message) {
-        // Echo messages back (not needed for our use case but required by interface)
-        console.log('WebSocket message received:', message);
+      message() {
+        // Inbound WS messages are not used by mdlens — silently ignored.
       },
-      close(ws) {
-        clients.delete(ws);
-        console.log('WebSocket client disconnected');
+      close() {
+        debug('WebSocket client disconnected');
       },
     },
   });
 
-  // Setup file watcher
   const stopWatching = watchMarkdownFiles(rootPath, (message: WebSocketMessage) => {
-    const data = JSON.stringify(message);
-    clients.forEach(client => {
-      client.send(data);
-    });
+    server.publish(WS_CHANNEL, JSON.stringify(message));
   });
 
-  console.log(`🚀 MDViewer running at http://localhost:${port}`);
+  console.log(`🚀 mdlens running at http://localhost:${port}`);
   console.log(`📁 Watching: ${rootPath}`);
 
   return {
     server,
     close: () => {
       stopWatching();
-      clients.forEach(client => client.close());
-      clients.clear();
       server.stop();
     }
   };
