@@ -3,29 +3,133 @@
   flex-direction: column;
   height: 100vh;
   width: 300px;
-  border-right: 1px solid #e0e0e0;
-  background-color: #fafafa;
+  min-width: 300px;
+  border-right: 1px solid var(--border);
+  background-color: var(--bg-sidebar);
+  transition: transform 0.25s ease;
 }
 
 .sidebar-header {
-  padding: 16px;
-  border-bottom: 1px solid #e0e0e0;
-  background-color: white;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--header-bg);
+}
+
+.sidebar-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
 }
 
 .sidebar-header h2 {
-  margin: 0 0 4px 0;
   font-size: 18px;
   font-weight: 600;
+  color: var(--text);
+}
+
+.dark-mode-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.dark-mode-toggle:hover {
+  background: var(--bg-hover);
+}
+
+.sidebar-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .file-count {
   font-size: 12px;
-  color: #666;
+  color: var(--text-muted);
+}
+
+/* Connection status indicator */
+.ws-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.ws-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-faint);
+}
+
+.ws-status--open .ws-dot {
+  background: #4caf50;
+}
+
+.ws-status--connecting .ws-dot {
+  background: #ff9800;
+  animation: ws-pulse 1s ease-in-out infinite;
+}
+
+.ws-status--closed .ws-dot {
+  background: #f44336;
+}
+
+@keyframes ws-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 .sidebar-loading {
   padding: 16px;
   text-align: center;
-  color: #666;
+  color: var(--text-muted);
+}
+
+/* Hamburger — hidden on desktop */
+.hamburger {
+  display: none;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 200;
+  background: var(--header-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+/* Mobile: collapse sidebar */
+@media (max-width: 640px) {
+  .hamburger {
+    display: block;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 100;
+    transform: translateX(-100%);
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .sidebar--open {
+    transform: translateX(0);
+  }
+
+  /* Push the title row past the fixed hamburger button on mobile */
+  .sidebar--open .sidebar-title-row {
+    padding-left: 44px;
+  }
 }

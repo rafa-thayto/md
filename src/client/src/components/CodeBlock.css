@@ -40,3 +40,13 @@
 .copy-button:active {
   background: #2c313a;
 }
+
+/* Visually hidden live region for copy feedback */
+.copy-feedback-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

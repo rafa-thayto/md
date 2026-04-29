@@ -1,4 +1,5 @@
 import { useState } from 'react';
+// TODO bundle-size: swap to prism-light + manual language registration for smaller bundle
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import './CodeBlock.css';
@@ -14,24 +15,32 @@ export function CodeBlock({ language, value }: CodeBlockProps) {
   const handleCopy = async () => {
     await navigator.clipboard.writeText(value);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), 1500);
   };
 
   return (
     <div className="code-block">
       <div className="code-header">
         <span className="code-language">{language}</span>
-        <button className="copy-button" onClick={handleCopy}>
+        <button
+          className="copy-button"
+          onClick={handleCopy}
+          aria-label={copied ? 'Copied to clipboard' : 'Copy code'}
+        >
           {copied ? '✓ Copied!' : '📋 Copy'}
         </button>
+        <span
+          className="copy-feedback-live"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {copied ? 'Copied!' : ''}
+        </span>
       </div>
       <SyntaxHighlighter
         language={language}
         style={oneDark}
-        customStyle={{
-          margin: 0,
-          borderRadius: '0 0 6px 6px'
-        }}
+        customStyle={{ margin: 0, borderRadius: '0 0 6px 6px' }}
       >
         {value}
       </SyntaxHighlighter>
