@@ -1,96 +1,113 @@
-import { join, normalize } from 'path';
-import { readFile, stat } from 'fs/promises';
+import { join, relative, isAbsolute, normalize } from 'path';
 import matter from 'gray-matter';
-import type { FileNode, FileContent, ErrorResponse } from '../types';
+import type { FileNode, FileContent, ErrorResponse, ErrorCode } from '../types';
 import { findMarkdownFiles } from './files';
 
-export class ApiServer {
-  constructor(private rootPath: string) {}
+// ── Status mapping ─────────────────────────────────────────────────────────
 
-  private isPathSafe(requestedPath: string): boolean {
-    const normalized = normalize(join(this.rootPath, requestedPath));
-    return normalized.startsWith(this.rootPath);
+const STATUS_BY_CODE: Record<ErrorCode, number> = {
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  FILE_DISCOVERY_ERROR: 500,
+};
+
+export function errorToStatus(code: ErrorCode): number {
+  return STATUS_BY_CODE[code];
+}
+
+// ── Path safety ────────────────────────────────────────────────────────────
+
+function isPathSafe(rootPath: string, requestedPath: string): boolean {
+  const target = normalize(join(rootPath, requestedPath));
+  const rel = relative(rootPath, target);
+  return !rel.startsWith('..') && !isAbsolute(rel);
+}
+
+// ── Error helpers ──────────────────────────────────────────────────────────
+
+function forbidden(): ErrorResponse {
+  return { error: 'FORBIDDEN', message: 'Access to this file is not allowed' };
+}
+
+function notFound(message = 'File not found'): ErrorResponse {
+  return { error: 'NOT_FOUND', message };
+}
+
+// ── Shared file loader ─────────────────────────────────────────────────────
+
+async function loadFileBytes(
+  rootPath: string,
+  requestedPath: string
+): Promise<{ fullPath: string } | ErrorResponse> {
+  if (!isPathSafe(rootPath, requestedPath)) {
+    return forbidden();
   }
 
-  async handleGetFiles(): Promise<FileNode | ErrorResponse> {
-    try {
-      return await findMarkdownFiles(this.rootPath);
-    } catch (error) {
-      return {
-        error: 'FILE_DISCOVERY_ERROR',
-        message: 'Failed to discover markdown files'
-      };
-    }
+  const fullPath = join(rootPath, requestedPath);
+  const bunFile = Bun.file(fullPath);
+
+  if (!(await bunFile.exists())) {
+    return notFound();
   }
 
-  async handleGetFile(filePath: string): Promise<FileContent | ErrorResponse> {
-    if (!this.isPathSafe(filePath)) {
-      return {
-        error: 'FORBIDDEN',
-        message: 'Access to this file is not allowed'
-      };
-    }
+  return { fullPath };
+}
 
-    const fullPath = join(this.rootPath, filePath);
+// ── Frontmatter parsing ────────────────────────────────────────────────────
 
-    try {
-      const stats = await stat(fullPath);
-      if (!stats.isFile()) {
-        return {
-          error: 'NOT_FOUND',
-          message: 'File not found'
-        };
-      }
+function parseFrontmatter(rawContent: string): Pick<FileContent, 'content' | 'frontmatter'> {
+  const parsed = matter(rawContent);
 
-      const rawContent = await readFile(fullPath, 'utf-8');
-      const parsed = matter(rawContent);
+  const hasData =
+    parsed.data !== null &&
+    typeof parsed.data === 'object' &&
+    !Array.isArray(parsed.data) &&
+    Object.keys(parsed.data).length > 0;
 
-      // Only use frontmatter if it's a valid object (not a string from malformed YAML)
-      const isValidFrontmatter =
-        parsed.data &&
-        typeof parsed.data === 'object' &&
-        !Array.isArray(parsed.data) &&
-        Object.keys(parsed.data).length > 0;
-
-      return {
-        path: filePath,
-        // If frontmatter parsing failed (content is empty but we have raw content), use raw content
-        content: parsed.content || (!isValidFrontmatter ? rawContent : ''),
-        frontmatter: isValidFrontmatter ? parsed.data : undefined
-      };
-    } catch (error) {
-      return {
-        error: 'NOT_FOUND',
-        message: 'File not found'
-      };
-    }
+  if (!hasData) {
+    return { content: rawContent };
   }
 
-  async handleGetAsset(assetPath: string): Promise<Buffer | ErrorResponse> {
-    if (!this.isPathSafe(assetPath)) {
-      return {
-        error: 'FORBIDDEN',
-        message: 'Access to this asset is not allowed'
-      };
-    }
+  const content = parsed.content || rawContent;
+  return { content, frontmatter: parsed.data };
+}
 
-    const fullPath = join(this.rootPath, assetPath);
+// ── Route handlers ─────────────────────────────────────────────────────────
 
-    try {
-      const stats = await stat(fullPath);
-      if (!stats.isFile()) {
-        return {
-          error: 'NOT_FOUND',
-          message: 'Asset not found'
-        };
-      }
+export async function handleGetFiles(rootPath: string): Promise<FileNode | ErrorResponse> {
+  try {
+    return await findMarkdownFiles(rootPath);
+  } catch {
+    return { error: 'FILE_DISCOVERY_ERROR', message: 'Failed to discover markdown files' };
+  }
+}
 
-      return await readFile(fullPath);
-    } catch (error) {
-      return {
-        error: 'NOT_FOUND',
-        message: 'Asset not found'
-      };
-    }
+export async function handleGetFile(
+  rootPath: string,
+  filePath: string
+): Promise<FileContent | ErrorResponse> {
+  const loaded = await loadFileBytes(rootPath, filePath);
+  if ('error' in loaded) return loaded;
+
+  try {
+    const rawContent = await Bun.file(loaded.fullPath).text();
+    return { path: filePath, ...parseFrontmatter(rawContent) };
+  } catch {
+    return notFound();
+  }
+}
+
+export async function handleGetAsset(
+  rootPath: string,
+  assetPath: string
+): Promise<Uint8Array | ErrorResponse> {
+  const loaded = await loadFileBytes(rootPath, assetPath);
+  if ('error' in loaded) return loaded;
+
+  try {
+    const bytes = await Bun.file(loaded.fullPath).bytes();
+    return bytes;
+  } catch {
+    return notFound('Asset not found');
   }
 }
