@@ -1,6 +1,6 @@
 .file-tree {
   overflow-y: auto;
-  height: 100%;
+  flex: 1;
   user-select: none;
 }
 
@@ -10,21 +10,23 @@
   padding: 6px 8px;
   cursor: pointer;
   font-size: 14px;
-  transition: background-color 0.15s;
+  color: var(--text);
+  transition: background-color 0.12s;
+  border-radius: 3px;
 }
 
 .tree-node:hover {
-  background-color: #f0f0f0;
+  background-color: var(--bg-hover);
 }
 
 .tree-node.selected {
-  background-color: #e3f2fd;
+  background-color: var(--bg-selected);
   font-weight: 500;
 }
 
 .tree-icon {
   margin-right: 6px;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .tree-directory-name {
@@ -32,13 +34,13 @@
 }
 
 .tree-children {
-  animation: slideDown 0.2s ease;
+  animation: slideDown 0.15s ease;
 }
 
 @keyframes slideDown {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(-6px);
   }
   to {
     opacity: 1;
