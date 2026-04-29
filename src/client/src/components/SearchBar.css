@@ -1,34 +1,36 @@
 .search-bar {
   position: relative;
   padding: 12px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--border);
 }
 
 .search-bar input {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border);
   border-radius: 4px;
   font-size: 14px;
   outline: none;
+  background: var(--search-bg);
+  color: var(--text);
 }
 
 .search-bar input:focus {
-  border-color: #2196f3;
-  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.15);
 }
 
 .search-results {
   position: absolute;
-  top: 100%;
+  top: calc(100% - 12px);
   left: 12px;
   right: 12px;
   max-height: 300px;
   overflow-y: auto;
-  background: white;
-  border: 1px solid #ccc;
+  background: var(--search-results-bg);
+  border: 1px solid var(--border);
   border-radius: 4px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   z-index: 1000;
 }
 
@@ -38,10 +40,16 @@
   padding: 8px 12px;
   cursor: pointer;
   font-size: 13px;
+  color: var(--text);
 }
 
-.search-result-item:hover {
-  background-color: #f5f5f5;
+.search-result-item:hover,
+.search-result-item.highlighted {
+  background-color: var(--bg-hover);
+}
+
+.search-result-item[aria-selected='true'] {
+  background-color: var(--bg-selected);
 }
 
 .search-icon {
@@ -49,5 +57,8 @@
 }
 
 .search-path {
-  color: #666;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
